@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Video Sync App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
+        video { max-width: 80vw; }
+    </style>
+</head>
+<body>
+    <h2>Video Sync App</h2>
+    <video id="video" width="640" controls>
+        <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+        Tu navegador no soporta el tag de video.
+    </video>
+    <script>
+        const socket = io();
+        const video = document.getElementById('video');
+        let syncing = false;
+
+        // Al recibir el estado actual al conectar
+        socket.on('sync', (state) => {
+            syncing = true;
+            video.currentTime = state.time;
+            if (state.paused) {
+                video.pause();
+            } else {
+                video.play();
+            }
+            syncing = false;
+        });
+
+        // Alguien más cambió el estado del video
+        socket.on('video-event', (data) => {
+            syncing = true;
+            if (typeof data.time === 'number') video.currentTime = data.time;
+            if (typeof data.paused === 'boolean') {
+                if (data.paused) video.pause();
+                else video.play();
+            }
+            syncing = false;
+        });
+
+        // Eventos locales
+        video.addEventListener('play', () => {
+            if (!syncing) socket.emit('video-event', { paused: false, time: video.currentTime });
+        });
+        video.addEventListener('pause', () => {
+            if (!syncing) socket.emit('video-event', { paused: true, time: video.currentTime });
+        });
+        video.addEventListener('seeked', () => {
+            if (!syncing) socket.emit('video-event', { time: video.currentTime });
+        });
+    </script>
+</body>
+</html>
